@@ -1,30 +1,60 @@
 import definePlugin, { OptionType } from "@utils/types";
+import { openModal, ModalRoot, ModalHeader, ModalContent, ModalFooter, ModalCloseButton } from "@utils/modal";
 import { definePluginSettings } from "@api/Settings";
 import { findStore, findByProps } from "@webpack";
-import { showToast } from "@webpack/common";
+import { Button, Forms } from "@webpack/common";
 
-const PLUGIN_VERSIONS = {
-    BigFileUpload: 1,
-    EncryptedText: 1,
-    FakeDeafen: 1
-};
+const GITHUB_PAGE = "https://github.com/Vencipher/vencord-customplugins";
+const PLUGIN_NAME = "FakeDeafen";
+const PLUGIN_VERSION = 1.0;
+
+function UpdateModal({ to, modalProps }: { to: number; modalProps: any; }) {
+    return (
+        <ModalRoot {...modalProps}>
+            <ModalHeader>
+                <Forms.FormTitle tag="h4" style={{ margin: 0 }}>🔔 Update Available</Forms.FormTitle>
+                <ModalCloseButton onClick={modalProps.onClose} />
+            </ModalHeader>
+            <ModalContent style={{ padding: "16px 16px 8px" }}>
+                <Forms.FormText style={{ marginBottom: "8px" }}>
+                    <strong>{PLUGIN_NAME}</strong> — v{PLUGIN_VERSION} → v{to}
+                </Forms.FormText>
+                <Forms.FormText style={{ marginBottom: "8px" }}>
+                    Run <code>update.bat</code> in your Vencord plugins folder to apply the update.
+                </Forms.FormText>
+                <Forms.FormText>
+                    Plugin GitHub page:{" "}
+                    <a
+                        href={GITHUB_PAGE}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: "var(--text-link)" }}
+                        onClick={e => { e.preventDefault(); window.open(GITHUB_PAGE, "_blank", "noreferrer"); }}
+                    >
+                        {GITHUB_PAGE}
+                    </a>
+                </Forms.FormText>
+            </ModalContent>
+            <ModalFooter>
+                <Button color={Button.Colors.BRAND} onClick={modalProps.onClose}>Ok</Button>
+            </ModalFooter>
+        </ModalRoot>
+    );
+}
 
 async function checkForUpdates() {
     try {
-        const response = await fetch("https://raw.githubusercontent.com/Vencipher/vencord-customplugins/main/version.json", { cache: "no-store" });
+        const response = await fetch(
+            "https://raw.githubusercontent.com/Vencipher/vencord-customplugins/main/version.json",
+            { cache: "no-store" }
+        );
         if (!response.ok) return;
-        const data = await response.json();
-        let needsUpdate = false;
-        for (const key in PLUGIN_VERSIONS) {
-            if (data[key] > (PLUGIN_VERSIONS as any)[key]) {
-                needsUpdate = true;
-                break;
-            }
+        const data: Record<string, number> = await response.json();
+        const remote = data[PLUGIN_NAME] ?? 0;
+        if (remote > PLUGIN_VERSION) {
+            openModal(modalProps => <UpdateModal to={remote} modalProps={modalProps} />);
         }
-        if (needsUpdate) {
-            showToast("Update available for custom plugins! Run the updater script.", { duration: 10000 });
-        }
-    } catch (error) {}
+    } catch {}
 }
 
 let GatewayConnectionStore: any;
@@ -88,13 +118,9 @@ export default definePlugin({
 
     fakeIt() {
         const voiceSocket = GatewayConnectionStore?.getSocket();
-        
         if (!voiceSocket) return;
-
         if (this.unpatch) this.unpatch();
-
         const originalVoiceStateUpdate = voiceSocket.voiceStateUpdate.bind(voiceSocket);
-
         voiceSocket.voiceStateUpdate = (data: any) => {
             voiceSocket.send(4, {
                 guild_id: data.guildId,
@@ -105,11 +131,7 @@ export default definePlugin({
                 self_video: settings.store.fakeVideo || data.selfVideo,
             });
         };
-
-        this.unpatch = () => {
-            voiceSocket.voiceStateUpdate = originalVoiceStateUpdate;
-        };
-
+        this.unpatch = () => { voiceSocket.voiceStateUpdate = originalVoiceStateUpdate; };
         this.enabled = true;
         this.forceUpdate();
     },
@@ -135,36 +157,32 @@ export default definePlugin({
 
     async forceUpdate() {
         if (!AudioUtils) return;
-        
         await AudioUtils.toggleSelfMute();
-        setTimeout(() => {
-            AudioUtils.toggleSelfMute();
-        }, 100);
+        setTimeout(() => { AudioUtils.toggleSelfMute(); }, 100);
     },
 
     playSound(soundName: string) {
         if (SoundModule) {
-            try { SoundModule.playSound(soundName, 0.5); } catch(e) {}
+            try { SoundModule.playSound(soundName, 0.5); } catch (e) { }
         }
     },
 
     handleKeyDown(e: KeyboardEvent) {
         const keybindSetting = settings.store.keybind;
         if (!keybindSetting || typeof keybindSetting !== "string") return;
-        
         const keybind = keybindSetting.toLowerCase();
         const parts = keybind.split("+");
         const key = parts[parts.length - 1];
         const ctrl = parts.includes("ctrl");
         const shift = parts.includes("shift");
         const alt = parts.includes("alt");
-
-        if (e.key.toLowerCase() === key && 
-           (ctrl === e.ctrlKey) && 
-           (shift === e.shiftKey) && 
-           (alt === e.altKey)) {
-            
-            e.preventDefault(); 
+        if (
+            e.key.toLowerCase() === key &&
+            ctrl === e.ctrlKey &&
+            shift === e.shiftKey &&
+            alt === e.altKey
+        ) {
+            e.preventDefault();
             this.toggle();
         }
     }
