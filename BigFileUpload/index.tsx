@@ -5,32 +5,62 @@ import { Flex } from "@components/Flex";
 import { OpenExternalIcon } from "@components/Icons";
 import { insertTextIntoChatInputBox, sendMessage } from "@utils/discord";
 import { Margins } from "@utils/margins";
+import { openModal, ModalRoot, ModalHeader, ModalContent, ModalFooter, ModalCloseButton } from "@utils/modal";
 import definePlugin, { OptionType, PluginNative } from "@utils/types";
 import { findByPropsLazy } from "@webpack";
 import { Button, DraftType, Forms, Menu, PermissionsBits, PermissionStore, React, Select, SelectedChannelStore, showToast, Switch, TextInput, UploadManager, useEffect, useState } from "@webpack/common";
 
-const PLUGIN_VERSIONS = {
-    BigFileUpload: 1,
-    EncryptedText: 1,
-    FakeDeafen: 1
-};
+const GITHUB_PAGE = "https://github.com/Vencipher/vencord-customplugins";
+const PLUGIN_NAME = "BigFileUpload";
+const PLUGIN_VERSION = 1.0;
+
+function UpdateModal({ to, modalProps }: { to: number; modalProps: any; }) {
+    return (
+        <ModalRoot {...modalProps}>
+            <ModalHeader>
+                <Forms.FormTitle tag="h4" style={{ margin: 0 }}>🔔 Update Available</Forms.FormTitle>
+                <ModalCloseButton onClick={modalProps.onClose} />
+            </ModalHeader>
+            <ModalContent style={{ padding: "16px 16px 8px" }}>
+                <Forms.FormText style={{ marginBottom: "8px" }}>
+                    <strong>{PLUGIN_NAME}</strong> — v{PLUGIN_VERSION} → v{to}
+                </Forms.FormText>
+                <Forms.FormText style={{ marginBottom: "8px" }}>
+                    Run <code>update.bat</code> in your Vencord plugins folder to apply the update.
+                </Forms.FormText>
+                <Forms.FormText>
+                    Plugin GitHub page:{" "}
+                    <a
+                        href={GITHUB_PAGE}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: "var(--text-link)" }}
+                        onClick={e => { e.preventDefault(); window.open(GITHUB_PAGE, "_blank", "noreferrer"); }}
+                    >
+                        {GITHUB_PAGE}
+                    </a>
+                </Forms.FormText>
+            </ModalContent>
+            <ModalFooter>
+                <Button color={Button.Colors.BRAND} onClick={modalProps.onClose}>Ok</Button>
+            </ModalFooter>
+        </ModalRoot>
+    );
+}
 
 async function checkForUpdates() {
     try {
-        const response = await fetch("https://raw.githubusercontent.com/Vencipher/vencord-customplugins/main/version.json", { cache: "no-store" });
+        const response = await fetch(
+            "https://raw.githubusercontent.com/Vencipher/vencord-customplugins/main/version.json",
+            { cache: "no-store" }
+        );
         if (!response.ok) return;
-        const data = await response.json();
-        let needsUpdate = false;
-        for (const key in PLUGIN_VERSIONS) {
-            if (data[key] > (PLUGIN_VERSIONS as any)[key]) {
-                needsUpdate = true;
-                break;
-            }
+        const data: Record<string, number> = await response.json();
+        const remote = data[PLUGIN_NAME] ?? 0;
+        if (remote > PLUGIN_VERSION) {
+            openModal(modalProps => <UpdateModal to={remote} modalProps={modalProps} />);
         }
-        if (needsUpdate) {
-            showToast("Update available for custom plugins! Run the updater script.", { duration: 10000 });
-        }
-    } catch (error) {}
+    } catch {}
 }
 
 declare const VencordNative: any;
@@ -162,15 +192,22 @@ function SettingsComponent(props: { setValue(v: any): void; }) {
                     </Forms.FormSection>
                     <Forms.FormSection title="URL (JSON path)"><TextInput value={customUploaderStore.get().url} onChange={v => customUploaderStore.set({ url: v })} /></Forms.FormSection>
                     <Forms.FormDivider />
-                    <Forms.FormTitle>Arguments</Forms.FormTitle>
-                    {Object.entries(customUploaderStore.get().args).map(([k, v], i) => (
-                        <div key={i}><TextInput value={k} placeholder="Key" onChange={nk => handleArgChange(k, nk, v)} /><TextInput value={v as string} placeholder="Value" onChange={nv => handleArgChange(k, k, nv)} className={Margins.bottom16} /></div>
-                    ))}
-                    <Forms.FormDivider />
-                    <Forms.FormTitle>Headers</Forms.FormTitle>
-                    {Object.entries(customUploaderStore.get().headers).map(([k, v], i) => (
-                        <div key={i}><TextInput value={k} placeholder="Key" onChange={nk => handleHeaderChange(k, nk, v)} /><TextInput value={v as string} placeholder="Value" onChange={nv => handleHeaderChange(k, k, nv)} className={Margins.bottom16} /></div>
-                    ))}
+                    <Forms.FormSection title="Headers">
+                        {Object.entries(customUploaderStore.get().headers).map(([k, v]) => (
+                            <Flex key={k}>
+                                <TextInput placeholder="Key" value={k} onChange={newKey => handleHeaderChange(k, newKey, v as string)} />
+                                <TextInput placeholder="Value" value={v as string} onChange={newVal => handleHeaderChange(k, k, newVal)} />
+                            </Flex>
+                        ))}
+                    </Forms.FormSection>
+                    <Forms.FormSection title="Args">
+                        {Object.entries(customUploaderStore.get().args).map(([k, v]) => (
+                            <Flex key={k}>
+                                <TextInput placeholder="Key" value={k} onChange={newKey => handleArgChange(k, newKey, v)} />
+                                <TextInput placeholder="Value" value={v as string} onChange={newVal => handleArgChange(k, k, newVal)} />
+                            </Flex>
+                        ))}
+                    </Forms.FormSection>
                     <Button onClick={() => fileInputRef.current?.click()}>Import ShareX Config</Button>
                     <input ref={fileInputRef} type="file" accept=".sxcu" style={{ display: "none" }} onChange={handleShareXConfigUpload} />
                 </>
@@ -216,7 +253,6 @@ async function uploadFileToGofile(file: File, channelId: string) {
     try {
         const fileArg = await getFileArg(file);
         const uploadResult = await Native.uploadFileToGofileNative(fileArg, file.name, file.type, settings.store.gofileToken);
-
         if (uploadResult.status === "ok") {
             setTimeout(() => sendTextToChat(`${uploadResult.data.downloadPage} `), 10);
             UploadManager.clearAll(channelId, DraftType.SlashCommand);
@@ -233,7 +269,6 @@ async function uploadFileToCatbox(file: File, channelId: string) {
         const fileArg = await getFileArg(file);
         const url = "https://catbox.moe/user/api.php";
         const result = await Native.uploadFileToCatboxNative(url, fileArg, file.name, file.type, settings.store.catboxUserHash);
-
         if (result.startsWith("http")) {
             setTimeout(() => sendTextToChat(`${result} `), 10);
             UploadManager.clearAll(channelId, DraftType.SlashCommand);
@@ -248,7 +283,6 @@ async function uploadFileToLitterbox(file: File, channelId: string) {
         const fileArg = await getFileArg(file);
         const url = "https://litterbox.catbox.moe/resources/internals/api.php";
         const result = await Native.uploadFileToLitterboxNative(url, fileArg, file.name, file.type, settings.store.litterboxTime ?? "1h");
-
         if (result.startsWith("http")) {
             setTimeout(() => sendTextToChat(`${result} `), 10);
             UploadManager.clearAll(channelId, DraftType.SlashCommand);
@@ -265,9 +299,7 @@ async function uploadFileCustom(file: File, channelId: string) {
         const args = JSON.parse(s.customUploaderArgs || "{}");
         const headers = JSON.parse(s.customUploaderHeaders || "{}");
         const path = s.customUploaderURL ? s.customUploaderURL.split(".") : [];
-
         const result = await Native.uploadFileToCustomNative(s.customUploaderRequestURL, fileArg, file.name, file.type, s.customUploaderFileFormName || "file", s.customUploaderResponseType, headers, args, path);
-
         if (result.startsWith("http")) {
             setTimeout(() => sendTextToChat(`${result} `), 10);
             UploadManager.clearAll(channelId, DraftType.SlashCommand);
