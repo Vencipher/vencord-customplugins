@@ -1,32 +1,62 @@
 import definePlugin, { OptionType } from "@utils/types";
-import { FluxDispatcher, React, showToast } from "@webpack/common";
+import { openModal, ModalRoot, ModalHeader, ModalContent, ModalFooter, ModalCloseButton } from "@utils/modal";
+import { FluxDispatcher, React, Button, Forms } from "@webpack/common";
 import { definePluginSettings } from "@api/Settings";
 import { addMessageAccessory, removeMessageAccessory } from "@api/MessageAccessories";
 import { ApplicationCommandInputType, ApplicationCommandOptionType } from "@api/Commands";
 import { sendMessage } from "@utils/discord";
 
-const PLUGIN_VERSIONS = {
-    BigFileUpload: 1,
-    EncryptedText: 1,
-    FakeDeafen: 1
-};
+const GITHUB_PAGE = "https://github.com/Vencipher/vencord-customplugins";
+const PLUGIN_NAME = "EncryptedText";
+const PLUGIN_VERSION = 1.0;
+
+function UpdateModal({ to, modalProps }: { to: number; modalProps: any; }) {
+    return (
+        <ModalRoot {...modalProps}>
+            <ModalHeader>
+                <Forms.FormTitle tag="h4" style={{ margin: 0 }}>🔔 Update Available</Forms.FormTitle>
+                <ModalCloseButton onClick={modalProps.onClose} />
+            </ModalHeader>
+            <ModalContent style={{ padding: "16px 16px 8px" }}>
+                <Forms.FormText style={{ marginBottom: "8px" }}>
+                    <strong>{PLUGIN_NAME}</strong> — v{PLUGIN_VERSION} → v{to}
+                </Forms.FormText>
+                <Forms.FormText style={{ marginBottom: "8px" }}>
+                    Run <code>update.bat</code> in your Vencord plugins folder to apply the update.
+                </Forms.FormText>
+                <Forms.FormText>
+                    Plugin GitHub page:{" "}
+                    <a
+                        href={GITHUB_PAGE}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: "var(--text-link)" }}
+                        onClick={e => { e.preventDefault(); window.open(GITHUB_PAGE, "_blank", "noreferrer"); }}
+                    >
+                        {GITHUB_PAGE}
+                    </a>
+                </Forms.FormText>
+            </ModalContent>
+            <ModalFooter>
+                <Button color={Button.Colors.BRAND} onClick={modalProps.onClose}>Ok</Button>
+            </ModalFooter>
+        </ModalRoot>
+    );
+}
 
 async function checkForUpdates() {
     try {
-        const response = await fetch("https://raw.githubusercontent.com/Vencipher/vencord-customplugins/main/version.json", { cache: "no-store" });
+        const response = await fetch(
+            "https://raw.githubusercontent.com/Vencipher/vencord-customplugins/main/version.json",
+            { cache: "no-store" }
+        );
         if (!response.ok) return;
-        const data = await response.json();
-        let needsUpdate = false;
-        for (const key in PLUGIN_VERSIONS) {
-            if (data[key] > (PLUGIN_VERSIONS as any)[key]) {
-                needsUpdate = true;
-                break;
-            }
+        const data: Record<string, number> = await response.json();
+        const remote = data[PLUGIN_NAME] ?? 0;
+        if (remote > PLUGIN_VERSION) {
+            openModal(modalProps => <UpdateModal to={remote} modalProps={modalProps} />);
         }
-        if (needsUpdate) {
-            showToast("Update available for custom plugins! Run the updater script.", { duration: 10000 });
-        }
-    } catch (error) {}
+    } catch {}
 }
 
 const settings = definePluginSettings({
@@ -89,19 +119,14 @@ export default definePlugin({
 
     async _tryDecrypt(channelId: string, msg: any) {
         if (!msg?.content?.includes(MARKER)) return;
-
         const key = settings.store.presetKey;
         if (!key) return;
-
         const match = msg.content.match(CIPHER_REGEX);
         if (!match) return;
-
         const result = await decryptMessage(match[1], key);
-
         if (result.success) {
             decryptedIds.add(msg.id);
         }
-
         FluxDispatcher.dispatch({
             type: "MESSAGE_UPDATE",
             message: {
@@ -132,7 +157,6 @@ export default definePlugin({
 
         addMessageAccessory("e2ee-badge", (props: any) => {
             if (!decryptedIds.has(props.message?.id)) return null;
-
             return React.createElement("span", {
                     style: { fontSize: "0.85em", display: "block", marginTop: "2px", userSelect: "none" }
                 },
@@ -167,22 +191,18 @@ export default definePlugin({
         execute: async (opts: any, ctx: any) => {
             const raw: string = opts.find((o: any) => o.name === "message")?.value;
             const key = settings.store.presetKey;
-
             if (!key) {
                 return { content: "❌ Set a Preset Key in Plugin Settings before using /e2ee." };
             }
-
             const b64 = await encryptMessage(raw, key);
             const finalContent =
                 `\`${b64}\`\n\n` +
                 `This message is 🔒End-to-end Encrypted. ` +
                 `To view its contents use [Vencord](<https://vencord.dev>) with the EncryptedText plugin. ` +
                 `Alternatively, use an [online Decryption tool](<https://vencipher.github.io/decryptor>).`;
-
             if (finalContent.length > 2000) {
                 return { content: "❌ Message too long after encryption. Discord limits messages to 2000 characters." };
             }
-
             sendMessage(ctx.channel.id, { content: finalContent });
         }
     }]
