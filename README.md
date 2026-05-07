@@ -5,7 +5,7 @@ A personal collection of custom userplugins developed for the Vencord Discord cl
 ## Included Plugins
 
 > [!NOTE]
-> Check out the [patch notes](PATCHNOTES.md) for more in depth information about each plugin
+> Check out the [patch notes](PATCHNOTES.md) for more in-depth information about each plugin
 
 * **BigFileUpload:** Bypass standard upload limits by routing large files through external services (Catbox, Litterbox, GoFile, or Custom).
 * **EncryptedText:** End-to-end encryption for Discord messages. Uses AES-GCM to ensure only users with the matching preset key can read your messages.
