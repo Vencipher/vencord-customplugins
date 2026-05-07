@@ -6,7 +6,7 @@ import { Menu, React, showToast, Button, Forms } from "@webpack/common";
 
 const GITHUB_PAGE = "https://github.com/Vencipher/vencord-customplugins";
 const PLUGIN_NAME = "UserColors";
-const PLUGIN_VERSION = 1;
+const PLUGIN_VERSION = 0.1;
 const DATA_KEY = "UserColors_colors";
 
 function UpdateModal({ to, modalProps }: { to: number; modalProps: any; }) {
