@@ -3,9 +3,15 @@
 A personal collection of custom userplugins developed for the Vencord Discord client. 
 
 ## Included Plugins
+
+> [!NOTE]
+> Check out the [patch notes](PATCHNOTES.MD) for more in depth information about each plugin
+
 * **BigFileUpload:** Bypass standard upload limits by routing large files through external services (Catbox, Litterbox, GoFile, or Custom).
 * **EncryptedText:** End-to-end encryption for Discord messages. Uses AES-GCM to ensure only users with the matching preset key can read your messages.
 * **FakeDeafen:** Visually fake your server mute/deafen status to other users while remaining able to hear and speak.
+* **UserColors:** Change the colors of any user in any chat to whatever you want. It overrides role colors.
+* **InvisibleDetector:** Detects invisible users and displays a visible sign next to their username.
 
 ## 🚀 Installation & Updating
 This repository uses a completely automated batch script to handle installing, updating, and injecting the plugins into your client.
