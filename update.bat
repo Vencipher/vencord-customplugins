@@ -1,7 +1,7 @@
 @echo off
 setlocal enabledelayedexpansion
 
-set "CONFIG_FILE=%~dp0vencipher_updater_config.txt"
+set "CONFIG_FILE=%~dp0plugin_updater_config.txt"
 
 if exist "%CONFIG_FILE%" (
     set /p VENCORD_DIR=<"%CONFIG_FILE%"
@@ -19,7 +19,7 @@ if exist "%CONFIG_FILE%" (
 if not exist "%VENCORD_DIR%\pnpm-lock.yaml" (
     echo.
     echo ERROR: Could not find Vencord at the specified path.
-    echo Please delete vencipher_updater_config.txt and run this script again.
+    echo Please delete plugin_updater_config.txt and run this script again.
     pause
     exit /b
 )
@@ -46,6 +46,8 @@ set "PLUGINS_DIR=src\userplugins"
 mkdir "%PLUGINS_DIR%\BigFileUpload" 2>nul
 mkdir "%PLUGINS_DIR%\EncryptedText" 2>nul
 mkdir "%PLUGINS_DIR%\FakeDeafen" 2>nul
+mkdir "%PLUGINS_DIR%\UserColors" 2>nul
+mkdir "%PLUGINS_DIR%\InvisibleDetector" 2>nul
 
 echo.
 echo Downloading Latest Plugins...
@@ -54,6 +56,8 @@ curl -s -o "%PLUGINS_DIR%\BigFileUpload\index.tsx" https://raw.githubusercontent
 curl -s -o "%PLUGINS_DIR%\BigFileUpload\native.ts" https://raw.githubusercontent.com/Vencipher/vencord-customplugins/main/BigFileUpload/native.ts
 curl -s -o "%PLUGINS_DIR%\EncryptedText\index.tsx" https://raw.githubusercontent.com/Vencipher/vencord-customplugins/main/EncryptedText/index.tsx
 curl -s -o "%PLUGINS_DIR%\FakeDeafen\index.tsx" https://raw.githubusercontent.com/Vencipher/vencord-customplugins/main/FakeDeafen/index.tsx
+curl -s -o "%PLUGINS_DIR%\UserColors\index.tsx" https://raw.githubusercontent.com/Vencipher/vencord-customplugins/main/UserColors/index.tsx
+curl -s -o "%PLUGINS_DIR%\InvisibleDetector\index.tsx" https://raw.githubusercontent.com/Vencipher/vencord-customplugins/main/InvisibleDetector/index.tsx
 
 echo.
 echo Rebuilding and Injecting Vencord...
