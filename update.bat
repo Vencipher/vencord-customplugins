@@ -2,6 +2,9 @@
 setlocal enabledelayedexpansion
 
 set "CONFIG_FILE=%~dp0plugin_updater_config.txt"
+set "PLUGINS_LIST=%~dp0plugins.txt"
+set "PLUGINS_EXTRA=%~dp0plugins_extra_files.txt"
+set "GITHUB_RAW=https://raw.githubusercontent.com/Vencipher/vencord-customplugins/main"
 
 if exist "%CONFIG_FILE%" (
     set /p VENCORD_DIR=<"%CONFIG_FILE%"
@@ -25,6 +28,17 @@ if not exist "%VENCORD_DIR%\pnpm-lock.yaml" (
 )
 
 echo.
+echo Fetching plugin list...
+curl -s -o "%PLUGINS_LIST%" "%GITHUB_RAW%/plugins.txt"
+curl -s -o "%PLUGINS_EXTRA%" "%GITHUB_RAW%/plugins_extra_files.txt"
+
+if not exist "%PLUGINS_LIST%" (
+    echo ERROR: Could not download plugin list from GitHub.
+    pause
+    exit /b
+)
+
+echo.
 echo Closing Discord...
 taskkill /F /IM Discord.exe /T 2>nul
 taskkill /F /IM DiscordPTB.exe /T 2>nul
@@ -43,21 +57,19 @@ call pnpm install
 
 set "PLUGINS_DIR=src\userplugins"
 
-mkdir "%PLUGINS_DIR%\BigFileUpload" 2>nul
-mkdir "%PLUGINS_DIR%\EncryptedText" 2>nul
-mkdir "%PLUGINS_DIR%\FakeDeafen" 2>nul
-mkdir "%PLUGINS_DIR%\UserColors" 2>nul
-mkdir "%PLUGINS_DIR%\InvisibleDetector" 2>nul
-
 echo.
 echo Downloading Latest Plugins...
 
-curl -s -o "%PLUGINS_DIR%\BigFileUpload\index.tsx" https://raw.githubusercontent.com/Vencipher/vencord-customplugins/main/BigFileUpload/index.tsx
-curl -s -o "%PLUGINS_DIR%\BigFileUpload\native.ts" https://raw.githubusercontent.com/Vencipher/vencord-customplugins/main/BigFileUpload/native.ts
-curl -s -o "%PLUGINS_DIR%\EncryptedText\index.tsx" https://raw.githubusercontent.com/Vencipher/vencord-customplugins/main/EncryptedText/index.tsx
-curl -s -o "%PLUGINS_DIR%\FakeDeafen\index.tsx" https://raw.githubusercontent.com/Vencipher/vencord-customplugins/main/FakeDeafen/index.tsx
-curl -s -o "%PLUGINS_DIR%\UserColors\index.tsx" https://raw.githubusercontent.com/Vencipher/vencord-customplugins/main/UserColors/index.tsx
-curl -s -o "%PLUGINS_DIR%\InvisibleDetector\index.tsx" https://raw.githubusercontent.com/Vencipher/vencord-customplugins/main/InvisibleDetector/index.tsx
+for /f "usebackq delims=" %%P in ("%PLUGINS_LIST%") do (
+    mkdir "%PLUGINS_DIR%\%%P" 2>nul
+    curl -s -o "%PLUGINS_DIR%\%%P\index.tsx" "%GITHUB_RAW%/%%P/index.tsx"
+)
+
+if exist "%PLUGINS_EXTRA%" (
+    for /f "usebackq tokens=1,2 delims=," %%A in ("%PLUGINS_EXTRA%") do (
+        curl -s -o "%PLUGINS_DIR%\%%A\%%B" "%GITHUB_RAW%/%%A/%%B"
+    )
+)
 
 echo.
 echo Rebuilding and Injecting Vencord...
