@@ -12,6 +12,7 @@ A personal collection of custom userplugins developed for the Vencord Discord cl
 * **FakeDeafen:** Visually fake your server mute/deafen status to other users while remaining able to hear and speak.
 * **UserColors:** Change the colors of any user in any chat to whatever you want. It overrides role colors.
 * **InvisibleDetector:** Detects invisible users and displays a visible sign next to their username.
+* **EasyMusic:** Allows playing music directly in the discord client. Currently only local playback is supported.
 
 ## 🚀 Installation & Updating
 This repository uses a completely automated batch script to handle installing, updating, and injecting the plugins into your client.
