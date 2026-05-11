@@ -1,1 +1,2 @@
 BigFileUpload,native.ts
+EasyMusic,native.ts
