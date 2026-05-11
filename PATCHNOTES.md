@@ -32,3 +32,4 @@ This is the first official version of this plugin. It created a folder on your s
 > * Automatic scraping of audio files from the web
 > * Streaming from sources like youtube
 > * Custom Rich Presence that shows what you are listening to on your profile
+> * Playback bar to allow more control
