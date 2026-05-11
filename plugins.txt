@@ -3,3 +3,4 @@ EncryptedText
 FakeDeafen
 UserColors
 InvisibleDetector
+EasyMusic
