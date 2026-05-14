@@ -95,9 +95,7 @@ function _getAudio(): HTMLAudioElement {
             if (_songs.length === 0) return;
             _loadTrack((_index + 1) % _songs.length, true);
         });
-        // Notify listeners on every time update so the progress bar stays live
         _audio.addEventListener("timeupdate", _notify);
-        // Also notify on duration change (fires once metadata loads)
         _audio.addEventListener("durationchange", _notify);
     }
     return _audio;
