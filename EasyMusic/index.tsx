@@ -1,10 +1,10 @@
 import definePlugin from "@utils/types";
 import { openModal, ModalRoot, ModalHeader, ModalContent, ModalFooter, ModalCloseButton } from "@utils/modal";
-import { React, useState, useEffect, Button, Forms } from "@webpack/common";
+import { React, useState, useEffect, useRef, Button, Forms } from "@webpack/common";
 
 const GITHUB_PAGE = "https://github.com/Vencipher/vencord-customplugins";
 const PLUGIN_NAME = "EasyMusic";
-const PLUGIN_VERSION = 0.1;
+const PLUGIN_VERSION = 0.2;
 
 const Native = VencordNative.pluginHelpers.EasyMusic as {
     ensureFolder(): Promise<string>;
@@ -71,6 +71,13 @@ function basename(fileUrl: string): string {
     }
 }
 
+function formatTime(seconds: number): string {
+    if (!isFinite(seconds) || isNaN(seconds)) return "0:00";
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 let _audio: HTMLAudioElement | null = null;
 let _songs: string[] = [];
 let _index = 0;
@@ -88,6 +95,10 @@ function _getAudio(): HTMLAudioElement {
             if (_songs.length === 0) return;
             _loadTrack((_index + 1) % _songs.length, true);
         });
+        // Notify listeners on every time update so the progress bar stays live
+        _audio.addEventListener("timeupdate", _notify);
+        // Also notify on duration change (fires once metadata loads)
+        _audio.addEventListener("durationchange", _notify);
     }
     return _audio;
 }
@@ -217,11 +228,38 @@ const S = {
         textOverflow: "ellipsis",
         whiteSpace: "nowrap",
     }),
+    progressWrapper: (): React.CSSProperties => ({
+        marginTop: 8,
+        cursor: "pointer",
+    }),
+    progressTrack: (): React.CSSProperties => ({
+        width: "100%",
+        height: 3,
+        background: "var(--background-modifier-accent)",
+        borderRadius: 999,
+        overflow: "hidden",
+        transition: "height 0.12s",
+    }),
+    progressFill: (pct: number): React.CSSProperties => ({
+        height: "100%",
+        width: `${pct * 100}%`,
+        background: "var(--brand-experiment)",
+        borderRadius: 999,
+        transition: "width 0.25s linear",
+    }),
+    progressTimes: (): React.CSSProperties => ({
+        display: "flex",
+        justifyContent: "space-between",
+        fontSize: 10,
+        color: "var(--text-muted)",
+        marginTop: 3,
+        letterSpacing: "0.02em",
+    }),
     counter: (): React.CSSProperties => ({
         textAlign: "center",
         fontSize: 11,
         color: "var(--text-muted)",
-        marginTop: 5,
+        marginTop: 8,
         marginBottom: 10,
         letterSpacing: "0.02em",
     }),
@@ -299,6 +337,48 @@ function CtrlBtn({ onClick, title, disabled = false, large = false, children }: 
     );
 }
 
+function ProgressBar({ hasTracks }: { hasTracks: boolean; }) {
+    const barRef = useRef<HTMLDivElement>(null);
+    const [hovered, setHovered] = useState(false);
+
+    const currentTime = _audio?.currentTime ?? 0;
+    const duration = _audio?.duration;
+    const validDuration = duration && isFinite(duration) && duration > 0;
+    const pct = (hasTracks && validDuration) ? Math.min(currentTime / duration!, 1) : 0;
+
+    function handleSeek(e: React.MouseEvent<HTMLDivElement>) {
+        if (!hasTracks || !validDuration || !barRef.current || !_audio) return;
+        const rect = barRef.current.getBoundingClientRect();
+        const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        _audio.currentTime = ratio * duration!;
+        _notify();
+    }
+
+    return (
+        <div
+            style={S.progressWrapper()}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            onClick={handleSeek}
+            title={hasTracks ? "Seek" : undefined}
+        >
+            <div
+                ref={barRef}
+                style={{
+                    ...S.progressTrack(),
+                    height: hovered && hasTracks ? 5 : 3,
+                }}
+            >
+                <div style={S.progressFill(pct)} />
+            </div>
+            <div style={S.progressTimes()}>
+                <span>{formatTime(currentTime)}</span>
+                <span>{validDuration ? formatTime(duration!) : "--:--"}</span>
+            </div>
+        </div>
+    );
+}
+
 function MusicPlayerPopup({ onClose }: { onClose(): void; }) {
     const [, setTick] = useState(0);
 
@@ -325,6 +405,9 @@ function MusicPlayerPopup({ onClose }: { onClose(): void; }) {
             </div>
 
             <div style={S.trackBox()} title={trackName}>{trackName}</div>
+
+            {/* Progress bar sits directly under the track name */}
+            <ProgressBar hasTracks={hasTracks} />
 
             <div style={S.counter()}>
                 {hasTracks
