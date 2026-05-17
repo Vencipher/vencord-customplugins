@@ -1,10 +1,55 @@
-import definePlugin from "@utils/types";
+import definePlugin, { OptionType } from "@utils/types";
+import { definePluginSettings } from "@api/Settings";
 import { openModal, ModalRoot, ModalHeader, ModalContent, ModalFooter, ModalCloseButton } from "@utils/modal";
-import { React, useState, useEffect, useRef, Button, Forms } from "@webpack/common";
+import { React, useState, useEffect, Button, Forms, FluxDispatcher } from "@webpack/common";
 
 const GITHUB_PAGE = "https://github.com/Vencipher/vencord-customplugins";
 const PLUGIN_NAME = "EasyMusic";
-const PLUGIN_VERSION = 0.2;
+const PLUGIN_VERSION = 0.3;
+
+const settings = definePluginSettings({
+    enableRPC: {
+        type: OptionType.BOOLEAN,
+        description: "Show your currently playing song as a Discord Rich Presence activity, visible to other users on your profile.",
+        default: true,
+        restartNeeded: false,
+    },
+});
+
+const RPC_APP_NAME = "EasyMusic";
+
+function parseTrackInfo(filename: string): { title: string; artist: string | undefined; } {
+    const name = filename.replace(/\.[^.]+$/, "");
+    const dash = name.indexOf(" - ");
+    if (dash !== -1) return { artist: name.slice(0, dash).trim(), title: name.slice(dash + 3).trim() };
+    return { title: name, artist: undefined };
+}
+
+function setRPC(fileUrl: string, playing: boolean): void {
+    if (!settings.store.enableRPC) return;
+    const filename = basename(fileUrl);
+    const { title, artist } = parseTrackInfo(filename);
+    FluxDispatcher.dispatch({
+        type: "LOCAL_ACTIVITY_UPDATE",
+        activity: {
+            name: RPC_APP_NAME,
+            type: 2,
+            details: title,
+            state: artist,
+            timestamps: playing ? { start: Date.now() } : undefined,
+            assets: { large_text: RPC_APP_NAME },
+        },
+        socketId: RPC_APP_NAME,
+    });
+}
+
+function clearRPC(): void {
+    FluxDispatcher.dispatch({
+        type: "LOCAL_ACTIVITY_UPDATE",
+        activity: null,
+        socketId: RPC_APP_NAME,
+    });
+}
 
 const Native = VencordNative.pluginHelpers.EasyMusic as {
     ensureFolder(): Promise<string>;
@@ -125,7 +170,7 @@ async function _loadTrack(idx: number, autoplay = false): Promise<void> {
 
     if (autoplay) {
         el.play()
-            .then(() => { _playing = true; _notify(); })
+            .then(() => { _playing = true; setRPC(_songs[_index], true); _notify(); })
             .catch(() => { _playing = false; _notify(); });
     } else {
         _notify();
@@ -149,11 +194,12 @@ function togglePlay(): void {
 
     if (el.paused) {
         el.play()
-            .then(() => { _playing = true; _notify(); })
+            .then(() => { _playing = true; setRPC(_songs[_index], true); _notify(); })
             .catch(console.error);
     } else {
         el.pause();
         _playing = false;
+        setRPC(_songs[_index], false);
         _notify();
     }
 }
@@ -163,6 +209,7 @@ function stopTrack(): void {
     _audio.pause();
     _audio.currentTime = 0;
     _playing = false;
+    clearRPC();
     _notify();
 }
 
@@ -336,7 +383,7 @@ function CtrlBtn({ onClick, title, disabled = false, large = false, children }: 
 }
 
 function ProgressBar({ hasTracks }: { hasTracks: boolean; }) {
-    const barRef = useRef<HTMLDivElement>(null);
+    const barRef = React.useRef<HTMLDivElement>(null);
     const [hovered, setHovered] = useState(false);
 
     const currentTime = _audio?.currentTime ?? 0;
@@ -404,7 +451,6 @@ function MusicPlayerPopup({ onClose }: { onClose(): void; }) {
 
             <div style={S.trackBox()} title={trackName}>{trackName}</div>
 
-            {/* Progress bar sits directly under the track name */}
             <ProgressBar hasTracks={hasTracks} />
 
             <div style={S.counter()}>
@@ -478,6 +524,8 @@ export default definePlugin({
     description: "Play local audio files from a dedicated folder with a media-player popup in the Discord toolbar.",
     authors: [{ name: "Vencipher", id: 1234567890123456789n }],
 
+    settings,
+
     patches: [
         {
             find: "toolbar:function",
@@ -496,6 +544,7 @@ export default definePlugin({
 
     stop() {
         stopTrack();
+        clearRPC();
         if (_currentBlobUrl) {
             URL.revokeObjectURL(_currentBlobUrl);
             _currentBlobUrl = null;
