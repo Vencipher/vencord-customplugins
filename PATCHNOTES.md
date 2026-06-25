@@ -4,6 +4,11 @@
 # FakeDeafen
 ## Version 1.0
 This is the first official version of this plugin. It includes the basic features like setting a keybind to toggle fake deafen, fake mute or fake video.
+## Version 2.0
+* Overhauled fake deafening logic.
+* Added a new toggle button next to the mute/deafen controls. Activate this button, then mute or deafen normally to trigger the spoofed states.
+* Added a plugin settings option to customize which states (mute/deafen/video) are applied by the button.
+* Fixed a visual artifact that occurred when toggling mute before deafening, allowing for better concealment of the action.
 # BigFileUpload
 ## Version 1.0
 This is the first official version of this plugin. It allows the user to automatically upload large files to file hosting services like GoFile using their API. It also allows the user to use their specific account token for the chosen service in order to save the uploaded files directly into their account.
